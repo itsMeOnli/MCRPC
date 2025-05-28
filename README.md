@@ -7,7 +7,7 @@ A more modern resource pack combiner for minecraft
 ---
 
 ## To-Do
-1. [ ] Create the logic
+1. [x] Create the logic
 1. [ ] Create the app in js/ts
     - [ ] Use libraries for archive
     - [ ] Transition to a Next app
