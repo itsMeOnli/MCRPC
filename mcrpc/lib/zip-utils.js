@@ -1,6 +1,6 @@
 // lib/zip-utils.js
 const fsp = require("fs/promises");
-const fs = require("fs"); // For createWriteStream and other standard fs operations
+const fs = require("fs");
 const path = require("path");
 const yauzl = require("yauzl");
 const archiver = require("archiver");

@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,56 +9,87 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Upload, Download, Trash2, Package, Pickaxe, Zap } from "lucide-react"
 
-// Mock Uppy integration - in a real app you'd import from '@uppy/core' etc.
 interface UploadedFile {
   id: string
   name: string
   size: number
-  type: string
+  file: File
 }
 
 export default function MinecraftResourcePackCombiner() {
   const [uploadedPacks, setUploadedPacks] = useState<UploadedFile[]>([])
-  const [isUploading, setIsUploading] = useState(false)
   const [isCombining, setIsCombining] = useState(false)
   const [combineProgress, setCombineProgress] = useState(0)
-  const [combinedPack, setCombinedPack] = useState<string | null>(null)
+  // const [combinedPack, setCombinedPack] = useState<string | null>(null)
+  const [combinedPackUrl, setCombinedPackUrl] = useState<string | null>(null);
 
-  // Simulate file upload
-  const handleFileUpload = () => {
-    setIsUploading(true)
-    // Simulate upload delay
-    setTimeout(() => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        alert(`${file.name} is not a valid .zip file`)
+        return
+      }
+
       const newPack: UploadedFile = {
         id: Math.random().toString(36).substr(2, 9),
-        name: `ResourcePack_${uploadedPacks.length + 1}.zip`,
-        size: Math.floor(Math.random() * 50000000) + 1000000, // 1-50MB
-        type: "application/zip",
+        name: file.name,
+        size: file.size,
+        file: file,
       }
       setUploadedPacks((prev) => [...prev, newPack])
-      setIsUploading(false)
-    }, 1500)
+    })
+
+    // Reset the input
+    event.target.value = ""
   }
 
-  // Simulate combining packs
-  const handleCombinePacks = () => {
-    if (uploadedPacks.length < 2) return
-
-    setIsCombining(true)
-    setCombineProgress(0)
-
-    const interval = setInterval(() => {
-      setCombineProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setIsCombining(false)
-          setCombinedPack("CombinedResourcePack.zip")
-          return 100
-        }
-        return prev + 10
-      })
-    }, 200)
+  const handleCombinePacks = async () => { // Make it async
+  if (uploadedPacks.length < 2) {
+    alert("Please upload at least two resource packs to combine."); // Or 1 if you allow single pack processing
+    return;
   }
+
+  setIsCombining(true);
+  setCombineProgress(0); // Initial progress
+  setCombinedPackUrl(null); // Clear previous results
+
+  const formData = new FormData();
+  uploadedPacks.forEach((pack) => {
+    // The key "resourcePacks" must match what your API route expects
+    formData.append("resourcePacks", pack.file, pack.name); // pack.name is optional but good for server logging
+  });
+
+  try {
+    //Simulate UI for progress for the timebeing
+    setCombineProgress(30);
+
+    const response = await fetch("/api/combine-resources", {
+      method: "POST",
+      body: formData,
+    });
+
+    // Simulate progress
+    setCombineProgress(70);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "An unknown error occurred." }));
+      throw new Error(errorData.message || `Server error: ${response.status}`);
+    }
+
+    const data: { downloadUrl: string } = await response.json();
+    setCombinedPackUrl(data.downloadUrl); // Store the actual download URL
+    setCombineProgress(100);
+  } catch (error) {
+    console.error("Error combining packs:", error);
+    alert(`Failed to combine packs: ${(error as Error).message}`);
+    setCombineProgress(0);
+  } finally {
+    setIsCombining(false);
+  }
+};
 
   const removePack = (id: string) => {
     setUploadedPacks((prev) => prev.filter((pack) => pack.id !== id))
@@ -98,24 +131,27 @@ export default function MinecraftResourcePackCombiner() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div
-              className="border-4 border-dashed border-stone-400 rounded-lg p-8 text-center bg-stone-100 hover:bg-stone-50 transition-colors cursor-pointer"
-              onClick={handleFileUpload}
-            >
-              {isUploading ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-stone-600 font-mono">Uploading resource pack...</p>
-                </div>
-              ) : (
+            <div className="relative">
+              <input
+                type="file"
+                accept=".zip"
+                multiple
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="block border-4 border-dashed border-stone-400 rounded-lg p-8 text-center bg-stone-100 hover:bg-stone-50 transition-colors cursor-pointer"
+              >
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-16 h-16 bg-green-500 border-4 border-green-700 flex items-center justify-center">
                     <Upload className="w-8 h-8 text-green-100" />
                   </div>
                   <p className="text-stone-700 font-mono text-lg font-bold">Click to upload .zip resource packs</p>
-                  <p className="text-stone-500 font-mono text-sm">Drag and drop files here or click to browse</p>
+                  <p className="text-stone-500 font-mono text-sm">Select multiple .zip files at once</p>
                 </div>
-              )}
+              </label>
             </div>
           </CardContent>
         </Card>
@@ -170,7 +206,7 @@ export default function MinecraftResourcePackCombiner() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              {!isCombining && !combinedPack && (
+              {!isCombining && !combinedPackUrl && (
                 <div className="text-center">
                   <p className="font-mono text-stone-700 mb-4">
                     Ready to combine {uploadedPacks.length} resource packs!
@@ -193,7 +229,7 @@ export default function MinecraftResourcePackCombiner() {
                 </div>
               )}
 
-              {combinedPack && (
+              {combinedPackUrl && (
                 <div className="text-center space-y-4">
                   <div className="flex items-center justify-center gap-2 mb-4">
                     <Badge className="bg-green-600 text-green-100 font-mono text-lg px-4 py-2">
@@ -203,7 +239,7 @@ export default function MinecraftResourcePackCombiner() {
                   <p className="font-mono text-stone-700 mb-4">Your combined resource pack is ready for download!</p>
                   <Button className="bg-blue-600 hover:bg-blue-700 border-4 border-blue-800 font-mono text-lg px-8 py-3">
                     <Download className="w-5 h-5 mr-2" />
-                    DOWNLOAD {combinedPack}
+                    DOWNLOAD {combinedPackUrl}
                   </Button>
                 </div>
               )}
