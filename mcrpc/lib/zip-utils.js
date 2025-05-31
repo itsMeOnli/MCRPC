@@ -41,12 +41,11 @@ async function unzipAndExtract(zipFilePath, destinationDir) {
               return reject(err);
             }
 
-            // Yauzl stream pipes directly to file system write stream
             const writeStream = fs.createWriteStream(entryPath);
             readStream.pipe(writeStream);
 
             readStream.on("end", () => {
-              zipfile.readEntry(); // Read the next entry
+              zipfile.readEntry();
             });
             readStream.on("error", (err) => {
               console.error(
@@ -93,7 +92,7 @@ async function unzipAndExtract(zipFilePath, destinationDir) {
  */
 async function mergeDirectories(sourcePath, destinationPath) {
   console.log(`Merging from ${sourcePath} to ${destinationPath}`);
-  await fsp.mkdir(destinationPath, { recursive: true }); // Ensure destination exists
+  await fsp.mkdir(destinationPath, { recursive: true });
 
   const files = await fsp.readdir(sourcePath, { withFileTypes: true });
 
@@ -106,7 +105,6 @@ async function mergeDirectories(sourcePath, destinationPath) {
       await mergeDirectories(srcFullPath, destFullPath);
     } else {
       // It's a file, copy and overwrite
-      // fsp.copyFile will overwrite by default if the destination exists
       await fsp.copyFile(srcFullPath, destFullPath);
     }
   }
@@ -124,7 +122,7 @@ async function createZipArchive(sourceDirectory, outputZipFilePath) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(outputZipFilePath);
     const archive = archiver("zip", {
-      zlib: { level: 9 }, // Sets the compression level (0-9)
+      zlib: { level: 9 },
     });
 
     output.on("close", () => {
